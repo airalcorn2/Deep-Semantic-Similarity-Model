@@ -47,15 +47,15 @@ neg_docs = [Input(shape = (None, WORD_DEPTH)) for j in range(J)]
 # convolved representation with K dimensions. K is the number of kernels/filters
 # being used in the operation. Essentially, the operation is taking the dot product
 # of a single weight matrix (W_c) with each of the word vectors (l_t) from the
-# query matrix (l_Q), adding the bias vector (b_c) and then applying the tanh function.
+# query matrix (l_Q), adding the bias vector (b_c), and then applying the tanh function.
 # That is, h_Q = tanh(W_c • l_Q + b_c). With that being said, that's not actually
 # how the operation is being calculated here. To tie the weights of the weight
 # matrix (W_c) together, we have to use a one-dimensional convolutional layer. 
-# Further, we have to transpose our query matrix (l_Q) so that time is in the first
+# Further, we have to transpose our query matrix (l_Q) so that time is the first
 # dimension rather than the second (as described in the paper). That is, l_Q[0, :]
 # represents our first word vector rather than l_Q[:, 0]. We can think of the weight
 # matrix (W_c) as being similarly transposed such that each kernel is a column
-# of W_c. Therefore, h_Q = tanh(l_Q • W_c + b_c), with l_Q, W_c, and b_c being
+# of W_c. Therefore, h_Q = tanh(l_Q • W_c + b_c) with l_Q, W_c, and b_c being
 # the transposes of the matrices described in the paper.
 query_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")(query) # See equation (2).
 
@@ -94,17 +94,17 @@ R_Q_D_ns = [R_layer([query_sem, neg_doc_sem]) for neg_doc_sem in neg_doc_sems] #
 concat_Rs = merge([R_Q_D_p] + R_Q_D_ns, mode = "concat")
 concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 
-# In this step, we multiply each R value by gamma. In the paper, gamma is described
-# as a smoothing factor for the softmax function, which is set empirically on a
-# held-out data set; however, we're going to learn it here by pretending it's a
-# single, 1 x 1 kernel.
+# In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
+# described as a smoothing factor for the softmax function and it's set empirically
+# on a held-out data set. We're going to learn gamma's value, however, by pretending
+# it's a single, 1 x 1 kernel.
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear")(concat_Rs) # See equation (5).
 
 # Next, we exponentiate each of the gamma * R(Q, D) values.
 exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1,))(with_gamma) # See equation (5).
 exponentiated = Reshape((J + 1,))(exponentiated)
 
-# Finally, we use the softmax function to get P(D+|Q).
+# Finally, we use the softmax function to calculate the P(D+|Q).
 prob = Lambda(lambda x: x[0][0] / backend.sum(x[0]), output_shape = (1,))(exponentiated) # See equation (5).
 
 # We now have everything we need to define our model.
