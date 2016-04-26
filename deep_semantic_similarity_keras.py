@@ -96,8 +96,8 @@ concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 
 # In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
 # described as a smoothing factor for the softmax function and it's set empirically
-# on a held-out data set. We're going to learn gamma's value, however, by pretending
-# it's a single, 1 x 1 kernel.
+# on a held-out data set. We're going to learn gamma's value by pretending it's
+# a single, 1 x 1 kernel.
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear")(concat_Rs) # See equation (5).
 
 # Next, we exponentiate each of the gamma * R(Q, D) values.
@@ -141,9 +141,9 @@ for i in range(sample_size):
 # for a given query and positive document. The function depends on two inputs, 
 # query and pos_doc. That is, if you start at the point in the graph where R(Q, D+)
 # is calculated and then backtrack as far as possible, you'll end up at two different
-# starting points, query and pos_doc. As a result, we supply those inputs in a
-# list to the function. This particular function only calculates a single output,
-# but multiple outputs are possible (see the following example).
+# starting points, query and pos_doc. As a result, we supply those inputs in a list
+# to the function. This particular function only calculates a single output, but
+# multiple outputs are possible (see the following example).
 get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
 get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
 
