@@ -7,7 +7,6 @@
 # [3] http://research.microsoft.com/pubs/238873/wsdm2015.v3.pdf
 
 import numpy as np
-import random
 
 from keras import backend
 from keras.layers import Input, merge
@@ -30,7 +29,7 @@ LETTER_GRAM_SIZE = 3 # See section 3.2.
 N_GRAM_SIZE = 3 # See section 3.2.
 TOTAL_LETTER_GRAMS = int(3 * 1e4) # Determined from data. See section 3.2.
 WORD_DEPTH = N_GRAM_SIZE * TOTAL_LETTER_GRAMS # See equation (1).
-K = 300 # Dimensionality of the max pooling layer. See section 3.4.
+K = 300 # Dimensionality of the max-pooling layer. See section 3.4.
 L = 128 # Dimensionality of latent semantic space. See section 3.5.
 J = 4 # Number of random unclicked documents serving as negative examples for a query. See section 4.
 FILTER_LENGTH = 1 # We only consider one time step for convolutions.
@@ -117,11 +116,11 @@ l_Qs = []
 pos_l_Ds = []
 
 for i in range(sample_size):
-    query_len = random.randint(1, 10)
+    query_len = np.random.randint(1, 10)
     l_Q = np.random.rand(1, query_len, WORD_DEPTH)
     l_Qs.append(l_Q)
     
-    doc_len = random.randint(50, 500)
+    doc_len = np.random.randint(50, 500)
     l_D = np.random.rand(1, doc_len, WORD_DEPTH)
     pos_l_Ds.append(l_D)
 
@@ -129,7 +128,7 @@ neg_l_Ds = []
 for i in range(sample_size):
     possibilities = list(range(sample_size))
     possibilities.remove(i)
-    negatives = random.sample(possibilities, J)
+    negatives = np.random.choice(possibilities, J)
     neg_l_Ds.append([pos_l_Ds[negative] for negative in negatives])
 
 # Because we're using the "binary_crossentropy" loss function, we can pretend that
