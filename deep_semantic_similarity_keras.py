@@ -47,7 +47,7 @@ neg_docs = [Input(shape = (None, WORD_DEPTH)) for j in range(J)]
 # convolved representation with K dimensions. K is the number of kernels/filters
 # being used in the operation. Essentially, the operation is taking the dot product
 # of a single weight matrix (W_c) with each of the word vectors (l_t) from the
-# query matrix (l_Q), adding the bias vector (b_c), and then applying the tanh function.
+# query matrix (l_Q), adding a bias vector (b_c), and then applying the tanh function.
 # That is, h_Q = tanh(W_c • l_Q + b_c). With that being said, that's not actually
 # how the operation is being calculated here. To tie the weights of the weight
 # matrix (W_c) together, we have to use a one-dimensional convolutional layer. 
@@ -84,7 +84,7 @@ neg_doc_maxes = [doc_max(neg_doc_conv) for neg_doc_conv in neg_doc_convs]
 pos_doc_sem = doc_sem(pos_doc_max)
 neg_doc_sems = [doc_sem(neg_doc_max) for neg_doc_max in neg_doc_maxes]
 
-# This layer calculates the cosine similarity between the semantic representaitons of
+# This layer calculates the cosine similarity between the semantic representations of
 # a query and a document.
 R_layer = Lambda(R, output_shape = (1,)) # See equation (4).
 
@@ -95,12 +95,12 @@ concat_Rs = merge([R_Q_D_p] + R_Q_D_ns, mode = "concat")
 concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 
 # In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
-# described as a smoothing factor for the softmax function and it's set empirically
+# described as a smoothing factor for the softmax function, and it's set empirically
 # on a held-out data set. We're going to learn gamma's value by pretending it's
 # a single, 1 x 1 kernel.
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear")(concat_Rs) # See equation (5).
 
-# Next, we exponentiate each of the gamma * R(Q, D) values.
+# Next, we exponentiate each of the gamma x R(Q, D) values.
 exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1,))(with_gamma) # See equation (5).
 exponentiated = Reshape((J + 1,))(exponentiated)
 
@@ -111,6 +111,7 @@ prob = Lambda(lambda x: x[0][0] / backend.sum(x[0]), output_shape = (1,))(expone
 model = Model(input = [query, pos_doc] + neg_docs, output = prob)
 model.compile(optimizer = "adadelta", loss = "binary_crossentropy")
 
+# Build a random data set.
 sample_size = 10
 l_Qs = []
 pos_l_Ds = []
@@ -131,6 +132,9 @@ for i in range(sample_size):
     negatives = random.sample(possibilities, J)
     neg_l_Ds.append([pos_l_Ds[negative] for negative in negatives])
 
+# Because we're using the "binary_crossentropy" loss function, we can pretend that
+# we're solving a binary classification problem and that every sample is a member
+# of the "1" class.
 y = np.ones(1)
 
 for i in range(sample_size):
@@ -138,12 +142,12 @@ for i in range(sample_size):
 
 # Here, I walk through an example of how to define a function for calculating output
 # from the computational graph. Let's define a function that calculates R(Q, D+)
-# for a given query and positive document. The function depends on two inputs, 
-# query and pos_doc. That is, if you start at the point in the graph where R(Q, D+)
-# is calculated and then backtrack as far as possible, you'll end up at two different
+# for a given query and clicked document. The function depends on two inputs, query
+# and pos_doc. That is, if you start at the point in the graph where R(Q, D+) is
+# calculated and then backtrack as far as possible, you'll end up at two different
 # starting points, query and pos_doc. As a result, we supply those inputs in a list
 # to the function. This particular function only calculates a single output, but
-# multiple outputs are possible (see the following example).
+# multiple outputs are possible (see the next example).
 get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
 get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
 
