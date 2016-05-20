@@ -132,8 +132,8 @@ for i in range(sample_size):
     neg_l_Ds.append([pos_l_Ds[negative] for negative in negatives])
 
 # Because we're using the "binary_crossentropy" loss function, we can pretend that
-# we're solving a binary classification problem and that every sample is a member
-# of the "1" class.
+# we're dealing with a binary classification problem and that every sample is a
+# member of the "1" class.
 y = np.ones(1)
 
 for i in range(sample_size):
@@ -150,7 +150,7 @@ for i in range(sample_size):
 get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
 get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
 
-# A slightly more complex function. Notice that both neg_docs and our output are
+# A slightly more complex function. Notice that both neg_docs and the output are
 # lists.
 get_R_Q_D_ns = backend.function([query] + neg_docs, R_Q_D_ns)
 get_R_Q_D_ns([l_Qs[0]] + neg_l_Ds[0])
