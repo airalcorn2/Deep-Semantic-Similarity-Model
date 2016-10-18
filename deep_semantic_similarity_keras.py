@@ -95,9 +95,10 @@ concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 
 # In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
 # described as a smoothing factor for the softmax function, and it's set empirically
-# on a held-out data set. I've found 100 works.
-gamma = 100
-with_gamma = Lambda(lambda x: gamma * x, output_shape = (J + 1,))(concat_Rs) # See equation (5).
+# on a held-out data set. We're going to learn gamma's value by pretending it's
+# a single, 1 x 1 kernel.
+weight = np.array([1]).reshape(1, 1, 1, 1)
+with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear", bias = False, weights = [weight])(concat_Rs) # See equation (5).
 
 # Next, we exponentiate each of the gamma x R(Q, D) values.
 exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1,))(with_gamma) # See equation (5).
