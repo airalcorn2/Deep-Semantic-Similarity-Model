@@ -71,7 +71,7 @@ query_sem = Dense(L, activation = "tanh", input_dim = K)(query_max) # See sectio
 
 # The document equivalent of the above query model.
 doc_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")
-doc_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K,))
+doc_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K, ))
 doc_sem = Dense(L, activation = "tanh", input_dim = K)
 
 pos_doc_conv = doc_conv(pos_doc)
