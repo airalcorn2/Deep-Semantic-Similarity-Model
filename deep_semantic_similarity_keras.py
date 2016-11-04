@@ -63,7 +63,7 @@ query_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape =
 # far as I can tell). As a result, I define my own max-pooling layer here. In the
 # paper, the operation selects the maximum value for each row of h_Q, but, because
 # we're using the transpose, we're selecting the maximum value for each column.
-query_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K,))(query_conv) # See section 3.4.
+query_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K, ))(query_conv) # See section 3.4.
 
 # In this step, we generate the semantic vector represenation of the query. This
 # is a standard neural network dense layer, i.e., y = tanh(W_s • v + b_s).
@@ -85,7 +85,7 @@ neg_doc_sems = [doc_sem(neg_doc_max) for neg_doc_max in neg_doc_maxes]
 
 # This layer calculates the cosine similarity between the semantic representations of
 # a query and a document.
-R_layer = Lambda(R, output_shape = (1,)) # See equation (4).
+R_layer = Lambda(R, output_shape = (1, )) # See equation (4).
 
 R_Q_D_p = R_layer([query_sem, pos_doc_sem]) # See equation (4).
 R_Q_D_ns = [R_layer([query_sem, neg_doc_sem]) for neg_doc_sem in neg_doc_sems] # See equation (4).
@@ -101,11 +101,11 @@ weight = np.array([1]).reshape(1, 1, 1, 1)
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear", bias = False, weights = [weight])(concat_Rs) # See equation (5).
 
 # Next, we exponentiate each of the gamma x R(Q, D) values.
-exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1,))(with_gamma) # See equation (5).
-exponentiated = Reshape((J + 1,))(exponentiated)
+exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1, ))(with_gamma) # See equation (5).
+exponentiated = Reshape((J + 1, ))(exponentiated)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
-prob = Lambda(lambda x: x[0][0] / backend.sum(x[0]), output_shape = (1,))(exponentiated) # See equation (5).
+prob = Lambda(lambda x: x[0][0] / backend.sum(x[0]), output_shape = (1, ))(exponentiated) # See equation (5).
 
 # We now have everything we need to define our model.
 model = Model(input = [query, pos_doc] + neg_docs, output = prob)
