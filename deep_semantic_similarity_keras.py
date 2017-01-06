@@ -14,17 +14,6 @@ from keras.layers.core import Dense, Lambda, Reshape
 from keras.layers.convolutional import Convolution1D
 from keras.models import Model
 
-
-def R(vects):
-    """
-    Calculates the cosine similarity of two vectors.
-    :param vects: a list of two vectors.
-    :return: the cosine similarity of two vectors.
-    """
-    (x, y) = vects
-    return backend.dot(x, backend.transpose(y)) / (x.norm(2) * y.norm(2)) # See equation (4)
-
-
 LETTER_GRAM_SIZE = 3 # See section 3.2.
 WINDOW_SIZE = 3 # See section 3.2.
 TOTAL_LETTER_GRAMS = int(3 * 1e4) # Determined from data. See section 3.2.
@@ -63,7 +52,7 @@ query_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape =
 # far as I can tell). As a result, I define my own max-pooling layer here. In the
 # paper, the operation selects the maximum value for each row of h_Q, but, because
 # we're using the transpose, we're selecting the maximum value for each column.
-query_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K, ))(query_conv) # See section 3.4.
+query_max = Lambda(lambda x: backend.max(x, axis = 1), output_shape = (K, ))(query_conv) # See section 3.4.
 
 # In this step, we generate the semantic vector represenation of the query. This
 # is a standard neural network dense layer, i.e., y = tanh(W_s • v + b_s).
@@ -71,7 +60,7 @@ query_sem = Dense(L, activation = "tanh", input_dim = K)(query_max) # See sectio
 
 # The document equivalent of the above query model.
 doc_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")
-doc_max = Lambda(lambda x: x.max(axis = 1), output_shape = (K, ))
+doc_max = Lambda(lambda x: backend.max(x, axis = 1), output_shape = (K, ))
 doc_sem = Dense(L, activation = "tanh", input_dim = K)
 
 pos_doc_conv = doc_conv(pos_doc)
@@ -85,10 +74,8 @@ neg_doc_sems = [doc_sem(neg_doc_max) for neg_doc_max in neg_doc_maxes]
 
 # This layer calculates the cosine similarity between the semantic representations of
 # a query and a document.
-R_layer = Lambda(R, output_shape = (1, )) # See equation (4).
-
-R_Q_D_p = R_layer([query_sem, pos_doc_sem]) # See equation (4).
-R_Q_D_ns = [R_layer([query_sem, neg_doc_sem]) for neg_doc_sem in neg_doc_sems] # See equation (4).
+R_Q_D_p = merge([query_sem, pos_doc_sem], mode = "cos") # See equation (4).
+R_Q_D_ns = [merge([query_sem, neg_doc_sem], mode = "cos") for neg_doc_sem in neg_doc_sems] # See equation (4).
 
 concat_Rs = merge([R_Q_D_p] + R_Q_D_ns, mode = "concat")
 concat_Rs = Reshape((J + 1, 1))(concat_Rs)
@@ -96,7 +83,7 @@ concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 # In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
 # described as a smoothing factor for the softmax function, and it's set empirically
 # on a held-out data set. We're going to learn gamma's value by pretending it's
-# a single, 1 x 1 kernel.
+# a single 1 x 1 kernel.
 weight = np.array([1]).reshape(1, 1, 1, 1)
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear", bias = False, weights = [weight])(concat_Rs) # See equation (5).
 
@@ -105,11 +92,11 @@ exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1, ))(with_
 exponentiated = Reshape((J + 1, ))(exponentiated)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
-prob = Lambda(lambda x: x[0][0] / backend.sum(x[0]), output_shape = (1, ))(exponentiated) # See equation (5).
+prob = Lambda(lambda x: backend.softmax(x), output_shape = (5, ))(exponentiated)
 
 # We now have everything we need to define our model.
 model = Model(input = [query, pos_doc] + neg_docs, output = prob)
-model.compile(optimizer = "adadelta", loss = "binary_crossentropy")
+model.compile(optimizer = "adadelta", loss = "categorical_crossentropy")
 
 # Build a random data set.
 sample_size = 10
@@ -132,22 +119,23 @@ for i in range(sample_size):
     negatives = np.random.choice(possibilities, J)
     neg_l_Ds.append([pos_l_Ds[negative] for negative in negatives])
 
-# Because we're using the "binary_crossentropy" loss function, we can pretend that
-# we're dealing with a binary classification problem and that every sample is a
-# member of the "1" class.
-y = np.ones(1)
+# Because we're using the "categorical_crossentropy" loss function, we can pretend that
+# we're dealing with a multi-class classification problem and that every sample is a
+# member of the "0" class.
+y = np.zeros(J + 1).reshape(1, J + 1)
+y[0][0] = 1
 
 for i in range(sample_size):
     history = model.fit([l_Qs[i], pos_l_Ds[i]] + neg_l_Ds[i], y, nb_epoch = 1, verbose = 0)
 
-# Here, I walk through an example of how to define a function for calculating output
-# from the computational graph. Let's define a function that calculates R(Q, D+)
-# for a given query and clicked document. The function depends on two inputs, query
-# and pos_doc. That is, if you start at the point in the graph where R(Q, D+) is
-# calculated and then backtrack as far as possible, you'll end up at two different
-# starting points, query and pos_doc. As a result, we supply those inputs in a list
-# to the function. This particular function only calculates a single output, but
-# multiple outputs are possible (see the next example).
+# Here, I walk through how to define a function for calculating output from the
+# computational graph. Let's define a function that calculates R(Q, D+) for a given
+# query and clicked document. The function depends on two inputs, query and pos_doc.
+# That is, if you start at the point in the graph where R(Q, D+) is calculated
+# and then work backwards as far as possible, you'll end up at two different starting
+# points: query and pos_doc. As a result, we supply those inputs in a list to the
+# function. This particular function only calculates a single output, but multiple
+# outputs are possible (see the next example).
 get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
 get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
 
