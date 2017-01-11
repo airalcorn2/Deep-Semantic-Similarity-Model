@@ -159,9 +159,15 @@ else:
 # function. This particular function only calculates a single output, but multiple
 # outputs are possible (see the next example).
 get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
-get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
+if BATCH:
+    get_R_Q_D_p([l_Qs, pos_l_Ds])
+else:
+    get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
 
 # A slightly more complex function. Notice that both neg_docs and the output are
 # lists.
 get_R_Q_D_ns = backend.function([query] + neg_docs, R_Q_D_ns)
-get_R_Q_D_ns([l_Qs[0]] + neg_l_Ds[0])
+if BATCH:
+    get_R_Q_D_ns([l_Qs] + [neg_l_Ds[j] for j in range(J)])
+else:
+    get_R_Q_D_ns([l_Qs[0]] + neg_l_Ds[0])
