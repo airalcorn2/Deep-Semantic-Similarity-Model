@@ -103,30 +103,52 @@ sample_size = 10
 l_Qs = []
 pos_l_Ds = []
 
-for i in range(sample_size):
-    query_len = np.random.randint(1, 10)
-    l_Q = np.random.rand(1, query_len, WORD_DEPTH)
-    l_Qs.append(l_Q)
-    
-    doc_len = np.random.randint(50, 500)
-    l_D = np.random.rand(1, doc_len, WORD_DEPTH)
-    pos_l_Ds.append(l_D)
+# Variable length input must be handled differently than padded input.
+BATCH = False
+(query_len, doc_len) = (5, 100)
 
-neg_l_Ds = []
+for i in range(sample_size):
+    
+    if BATCH:
+        l_Q = np.random.rand(query_len, WORD_DEPTH)
+        l_Qs.append(l_Q)
+        
+        l_D = np.random.rand(doc_len, WORD_DEPTH)
+        pos_l_Ds.append(l_D)
+    else:
+        query_len = np.random.randint(1, 10)
+        l_Q = np.random.rand(1, query_len, WORD_DEPTH)
+        l_Qs.append(l_Q)
+        
+        doc_len = np.random.randint(50, 500)
+        l_D = np.random.rand(1, doc_len, WORD_DEPTH)
+        pos_l_Ds.append(l_D)
+
+neg_l_Ds = [[] for j in range(J)]
 for i in range(sample_size):
     possibilities = list(range(sample_size))
     possibilities.remove(i)
-    negatives = np.random.choice(possibilities, J)
-    neg_l_Ds.append([pos_l_Ds[negative] for negative in negatives])
+    negatives = np.random.choice(possibilities, J, replace = False)
+    for j in range(J):
+        negative = negatives[j]
+        neg_l_Ds[j].append(pos_l_Ds[negative])
 
-# Because we're using the "categorical_crossentropy" loss function, we can pretend that
-# we're dealing with a multi-class classification problem and that every sample is a
-# member of the "0" class.
 y = np.zeros(J + 1).reshape(1, J + 1)
-y[0][0] = 1
+y[0, 0] = 1
 
-for i in range(sample_size):
-    history = model.fit([l_Qs[i], pos_l_Ds[i]] + neg_l_Ds[i], y, nb_epoch = 1, verbose = 0)
+if BATCH:
+    y = np.zeros((sample_size, J + 1))
+    y[:, 0] = 1
+    
+    l_Qs = np.array(l_Qs)
+    pos_l_Ds = np.array(pos_l_Ds)
+    for j in range(J):
+        neg_l_Ds[j] = np.array(neg_l_Ds[j])
+    
+    history = model.fit([l_Qs, pos_l_Ds] + [neg_l_Ds[j] for j in range(J)], y, nb_epoch = 1, verbose = 0)
+else:
+    for i in range(sample_size):
+        history = model.fit([l_Qs[i], pos_l_Ds[i]] + [neg_l_Ds[j][i] for j in range(J)], y, nb_epoch = 1, verbose = 0)
 
 # Here, I walk through how to define a function for calculating output from the
 # computational graph. Let's define a function that calculates R(Q, D+) for a given
