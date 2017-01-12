@@ -104,8 +104,11 @@ l_Qs = []
 pos_l_Ds = []
 
 # Variable length input must be handled differently than padded input.
-# WARNING: batch processing does not work when using TensorFlow as the backend.
-BATCH = False
+# NOTE: batch processing does not work when using TensorFlow as the backend.
+BATCH = True
+if backend.backend() == "tensorflow":
+    BATCH = False
+
 (query_len, doc_len) = (5, 100)
 
 for i in range(sample_size):
