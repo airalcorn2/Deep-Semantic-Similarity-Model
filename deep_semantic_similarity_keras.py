@@ -104,6 +104,7 @@ l_Qs = []
 pos_l_Ds = []
 
 # Variable length input must be handled differently than padded input.
+# WARNING: batch processing does not work when using TensorFlow as the backend.
 BATCH = False
 (query_len, doc_len) = (5, 100)
 
@@ -158,7 +159,7 @@ else:
 # points: query and pos_doc. As a result, we supply those inputs in a list to the
 # function. This particular function only calculates a single output, but multiple
 # outputs are possible (see the next example).
-get_R_Q_D_p = backend.function([query, pos_doc], R_Q_D_p)
+get_R_Q_D_p = backend.function([query, pos_doc], [R_Q_D_p])
 if BATCH:
     get_R_Q_D_p([l_Qs, pos_l_Ds])
 else:
