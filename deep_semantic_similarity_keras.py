@@ -92,7 +92,7 @@ exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1, ))(with_
 exponentiated = Reshape((J + 1, ))(exponentiated)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
-prob = Lambda(lambda x: backend.softmax(x), output_shape = (1 + J, ))(exponentiated)
+prob = Lambda(lambda x: backend.softmax(x), output_shape = (J + 1, ))(exponentiated)
 
 # We now have everything we need to define our model.
 model = Model(input = [query, pos_doc] + neg_docs, output = prob)
