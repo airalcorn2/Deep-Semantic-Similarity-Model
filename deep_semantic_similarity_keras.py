@@ -86,13 +86,10 @@ concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 # a single 1 x 1 kernel.
 weight = np.array([1]).reshape(1, 1, 1, 1)
 with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear", bias = False, weights = [weight])(concat_Rs) # See equation (5).
-
-# Next, we exponentiate each of the gamma x R(Q, D) values.
-exponentiated = Lambda(lambda x: backend.exp(x), output_shape = (J + 1, ))(with_gamma) # See equation (5).
-exponentiated = Reshape((J + 1, ))(exponentiated)
+with_gamma = Reshape((J + 1, ))(with_gamma)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
-prob = Lambda(lambda x: backend.softmax(x), output_shape = (J + 1, ))(exponentiated)
+prob = Lambda(lambda x: backend.softmax(x), output_shape = (J + 1, ))(exponentiated) # See equation (5).
 
 # We now have everything we need to define our model.
 model = Model(input = [query, pos_doc] + neg_docs, output = prob)
