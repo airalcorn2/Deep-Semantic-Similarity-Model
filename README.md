@@ -1,4 +1,4 @@
-# Deep-Semantic-Similarity-Model
+# Deep Semantic Similarity Model
 My Keras implementation of the Deep Semantic Similarity Model (DSSM)/Convolutional Latent Semantic Model (CLSM) described here: http://research.microsoft.com/pubs/226585/cikm2014_cdssm_final.pdf.
 
 ## Additional References
