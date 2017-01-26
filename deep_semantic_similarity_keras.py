@@ -100,8 +100,10 @@ sample_size = 10
 l_Qs = []
 pos_l_Ds = []
 
-# Variable length input must be handled differently than padded input.
+# Variable length input must be handled differently from padded input.
 # NOTE: batch processing does not work when using TensorFlow as the backend.
+# See here --> https://github.com/fchollet/keras/issues/5131 for a workaround
+# and here --> https://github.com/fchollet/keras/issues/4588 for more discussion.
 BATCH = True
 if backend.backend() == "tensorflow":
     BATCH = False
