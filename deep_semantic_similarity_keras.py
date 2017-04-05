@@ -140,3 +140,25 @@ else:
     
     for i in range(sample_size):
         history = model.fit([l_Qs[i], pos_l_Ds[i]] + [neg_l_Ds[j][i] for j in range(J)], y, epochs = 1, verbose = 0)
+
+# Here, I walk through how to define a function for calculating output from the
+# computational graph. Let's define a function that calculates R(Q, D+) for a given
+# query and clicked document. The function depends on two inputs, query and pos_doc.
+# That is, if you start at the point in the graph where R(Q, D+) is calculated
+# and then work backwards as far as possible, you'll end up at two different starting
+# points: query and pos_doc. As a result, we supply those inputs in a list to the
+# function. This particular function only calculates a single output, but multiple
+# outputs are possible (see the next example).
+get_R_Q_D_p = backend.function([query, pos_doc], [R_Q_D_p])
+if BATCH:
+    get_R_Q_D_p([l_Qs, pos_l_Ds])
+else:
+    get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
+
+# A slightly more complex function. Notice that both neg_docs and the output are
+# lists.
+get_R_Q_D_ns = backend.function([query] + neg_docs, R_Q_D_ns)
+if BATCH:
+    get_R_Q_D_ns([l_Qs] + [neg_l_Ds[j] for j in range(J)])
+else:
+    get_R_Q_D_ns([l_Qs[0]] + neg_l_Ds[0])
