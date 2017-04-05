@@ -1,17 +1,10 @@
-# Michael A. Alcorn (malcorn@redhat.com)
-# An implementation of the Deep Semantic Similarity Model (DSSM) found in [1].
-# [1] Shen, Y., He, X., Gao, J., Deng, L., and Mesnil, G. 2014. A latent semantic model
-#         with convolutional-pooling structure for information retrieval. In CIKM, pp. 101-110.
-#         http://research.microsoft.com/pubs/226585/cikm2014_cdssm_final.pdf
-# [2] http://research.microsoft.com/en-us/projects/dssm/
-# [3] http://research.microsoft.com/pubs/238873/wsdm2015.v3.pdf
-
 import numpy as np
 
 from keras import backend
 from keras.layers import Input, merge
 from keras.layers.core import Dense, Lambda, Reshape
 from keras.layers.convolutional import Convolution1D
+from keras.layers.merge import concatenate, dot
 from keras.models import Model
 
 LETTER_GRAM_SIZE = 3 # See section 3.2.
@@ -45,7 +38,7 @@ neg_docs = [Input(shape = (None, WORD_DEPTH)) for j in range(J)]
 # matrix (W_c) as being similarly transposed such that each kernel is a column
 # of W_c. Therefore, h_Q = tanh(l_Q • W_c + b_c) with l_Q, W_c, and b_c being
 # the transposes of the matrices described in the paper.
-query_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")(query) # See equation (2).
+query_conv = Convolution1D(K, FILTER_LENGTH, padding = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")(query) # See equation (2).
 
 # Next, we apply a max-pooling layer to the convolved query matrix. Keras provides
 # its own max-pooling layers, but they cannot handle variable length input (as
@@ -59,7 +52,7 @@ query_max = Lambda(lambda x: backend.max(x, axis = 1), output_shape = (K, ))(que
 query_sem = Dense(L, activation = "tanh", input_dim = K)(query_max) # See section 3.5.
 
 # The document equivalent of the above query model.
-doc_conv = Convolution1D(K, FILTER_LENGTH, border_mode = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")
+doc_conv = Convolution1D(K, FILTER_LENGTH, padding = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")
 doc_max = Lambda(lambda x: backend.max(x, axis = 1), output_shape = (K, ))
 doc_sem = Dense(L, activation = "tanh", input_dim = K)
 
@@ -74,25 +67,25 @@ neg_doc_sems = [doc_sem(neg_doc_max) for neg_doc_max in neg_doc_maxes]
 
 # This layer calculates the cosine similarity between the semantic representations of
 # a query and a document.
-R_Q_D_p = merge([query_sem, pos_doc_sem], mode = "cos") # See equation (4).
-R_Q_D_ns = [merge([query_sem, neg_doc_sem], mode = "cos") for neg_doc_sem in neg_doc_sems] # See equation (4).
+R_Q_D_p = dot([query_sem, pos_doc_sem], axes = 1, normalize = True) # See equation (4).
+R_Q_D_ns = [dot([query_sem, neg_doc_sem], axes = 1, normalize = True) for neg_doc_sem in neg_doc_sems] # See equation (4).
 
-concat_Rs = merge([R_Q_D_p] + R_Q_D_ns, mode = "concat")
+concat_Rs = concatenate([R_Q_D_p] + R_Q_D_ns)
 concat_Rs = Reshape((J + 1, 1))(concat_Rs)
 
 # In this step, we multiply each R(Q, D) value by gamma. In the paper, gamma is
 # described as a smoothing factor for the softmax function, and it's set empirically
 # on a held-out data set. We're going to learn gamma's value by pretending it's
 # a single 1 x 1 kernel.
-weight = np.array([1]).reshape(1, 1, 1, 1)
-with_gamma = Convolution1D(1, 1, border_mode = "same", input_shape = (J + 1, 1), activation = "linear", bias = False, weights = [weight])(concat_Rs) # See equation (5).
+weight = np.array([1]).reshape(1, 1, 1)
+with_gamma = Convolution1D(1, 1, padding = "same", input_shape = (J + 1, 1), activation = "linear", use_bias = False, weights = [weight])(concat_Rs) # See equation (5).
 with_gamma = Reshape((J + 1, ))(with_gamma)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
 prob = Lambda(lambda x: backend.softmax(x), output_shape = (J + 1, ))(with_gamma) # See equation (5).
 
 # We now have everything we need to define our model.
-model = Model(input = [query, pos_doc] + neg_docs, output = prob)
+model = Model(inputs = [query, pos_doc] + neg_docs, outputs = prob)
 model.compile(optimizer = "adadelta", loss = "categorical_crossentropy")
 
 # Build a random data set.
@@ -101,12 +94,7 @@ l_Qs = []
 pos_l_Ds = []
 
 # Variable length input must be handled differently from padded input.
-# NOTE: batch processing does not work when using TensorFlow as the backend.
-# See here --> https://github.com/fchollet/keras/issues/5131 for a workaround
-# and here --> https://github.com/fchollet/keras/issues/4588 for more discussion.
 BATCH = True
-if backend.backend() == "tensorflow":
-    BATCH = False
 
 (query_len, doc_len) = (5, 100)
 
@@ -136,9 +124,6 @@ for i in range(sample_size):
         negative = negatives[j]
         neg_l_Ds[j].append(pos_l_Ds[negative])
 
-y = np.zeros(J + 1).reshape(1, J + 1)
-y[0, 0] = 1
-
 if BATCH:
     y = np.zeros((sample_size, J + 1))
     y[:, 0] = 1
@@ -148,29 +133,10 @@ if BATCH:
     for j in range(J):
         neg_l_Ds[j] = np.array(neg_l_Ds[j])
     
-    history = model.fit([l_Qs, pos_l_Ds] + [neg_l_Ds[j] for j in range(J)], y, nb_epoch = 1, verbose = 0)
+    history = model.fit([l_Qs, pos_l_Ds] + [neg_l_Ds[j] for j in range(J)], y, epochs = 1, verbose = 0)
 else:
+    y = np.zeros(J + 1).reshape(1, J + 1)
+    y[0, 0] = 1
+    
     for i in range(sample_size):
-        history = model.fit([l_Qs[i], pos_l_Ds[i]] + [neg_l_Ds[j][i] for j in range(J)], y, nb_epoch = 1, verbose = 0)
-
-# Here, I walk through how to define a function for calculating output from the
-# computational graph. Let's define a function that calculates R(Q, D+) for a given
-# query and clicked document. The function depends on two inputs, query and pos_doc.
-# That is, if you start at the point in the graph where R(Q, D+) is calculated
-# and then work backwards as far as possible, you'll end up at two different starting
-# points: query and pos_doc. As a result, we supply those inputs in a list to the
-# function. This particular function only calculates a single output, but multiple
-# outputs are possible (see the next example).
-get_R_Q_D_p = backend.function([query, pos_doc], [R_Q_D_p])
-if BATCH:
-    get_R_Q_D_p([l_Qs, pos_l_Ds])
-else:
-    get_R_Q_D_p([l_Qs[0], pos_l_Ds[0]])
-
-# A slightly more complex function. Notice that both neg_docs and the output are
-# lists.
-get_R_Q_D_ns = backend.function([query] + neg_docs, R_Q_D_ns)
-if BATCH:
-    get_R_Q_D_ns([l_Qs] + [neg_l_Ds[j] for j in range(J)])
-else:
-    get_R_Q_D_ns([l_Qs[0]] + neg_l_Ds[0])
+        history = model.fit([l_Qs[i], pos_l_Ds[i]] + [neg_l_Ds[j][i] for j in range(J)], y, epochs = 1, verbose = 0)
