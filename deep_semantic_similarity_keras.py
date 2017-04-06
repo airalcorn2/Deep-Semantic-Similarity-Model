@@ -1,3 +1,11 @@
+# Michael A. Alcorn (malcorn@redhat.com)
+# An implementation of the Deep Semantic Similarity Model (DSSM) found in [1].
+# [1] Shen, Y., He, X., Gao, J., Deng, L., and Mesnil, G. 2014. A latent semantic model
+#         with convolutional-pooling structure for information retrieval. In CIKM, pp. 101-110.
+#         http://research.microsoft.com/pubs/226585/cikm2014_cdssm_final.pdf
+# [2] http://research.microsoft.com/en-us/projects/dssm/
+# [3] http://research.microsoft.com/pubs/238873/wsdm2015.v3.pdf
+
 import numpy as np
 
 from keras import backend
