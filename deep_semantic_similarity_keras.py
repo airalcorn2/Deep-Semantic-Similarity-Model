@@ -9,7 +9,7 @@
 import numpy as np
 
 from keras import backend
-from keras.layers import Input, merge
+from keras.layers import Input
 from keras.layers.core import Dense, Lambda, Reshape
 from keras.layers.convolutional import Convolution1D
 from keras.layers.merge import concatenate, dot
