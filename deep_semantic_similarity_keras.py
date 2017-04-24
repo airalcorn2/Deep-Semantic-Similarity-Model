@@ -45,7 +45,8 @@ neg_docs = [Input(shape = (None, WORD_DEPTH)) for j in range(J)]
 # represents our first word vector rather than l_Q[:, 0]. We can think of the weight
 # matrix (W_c) as being similarly transposed such that each kernel is a column
 # of W_c. Therefore, h_Q = tanh(l_Q • W_c + b_c) with l_Q, W_c, and b_c being
-# the transposes of the matrices described in the paper.
+# the transposes of the matrices described in the paper. Note: the paper does not
+# include bias units.
 query_conv = Convolution1D(K, FILTER_LENGTH, padding = "same", input_shape = (None, WORD_DEPTH), activation = "tanh")(query) # See equation (2).
 
 # Next, we apply a max-pooling layer to the convolved query matrix. Keras provides
@@ -56,7 +57,8 @@ query_conv = Convolution1D(K, FILTER_LENGTH, padding = "same", input_shape = (No
 query_max = Lambda(lambda x: backend.max(x, axis = 1), output_shape = (K, ))(query_conv) # See section 3.4.
 
 # In this step, we generate the semantic vector represenation of the query. This
-# is a standard neural network dense layer, i.e., y = tanh(W_s • v + b_s).
+# is a standard neural network dense layer, i.e., y = tanh(W_s • v + b_s). Again,
+# the paper does not include bias units.
 query_sem = Dense(L, activation = "tanh", input_dim = K)(query_max) # See section 3.5.
 
 # The document equivalent of the above query model.
