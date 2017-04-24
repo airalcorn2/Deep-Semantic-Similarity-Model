@@ -36,7 +36,7 @@ neg_docs = [Input(shape = (None, WORD_DEPTH)) for j in range(J)]
 # convolved representation with K dimensions. K is the number of kernels/filters
 # being used in the operation. Essentially, the operation is taking the dot product
 # of a single weight matrix (W_c) with each of the word vectors (l_t) from the
-# query matrix (l_Q), adding a bias vector (b_c), and then applying the tanh function.
+# query matrix (l_Q), adding a bias vector (b_c), and then applying the tanh activation.
 # That is, h_Q = tanh(W_c • l_Q + b_c). With that being said, that's not actually
 # how the operation is being calculated here. To tie the weights of the weight
 # matrix (W_c) together, we have to use a one-dimensional convolutional layer. 
