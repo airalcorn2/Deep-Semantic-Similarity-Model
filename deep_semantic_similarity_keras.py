@@ -9,7 +9,7 @@
 import numpy as np
 
 from keras import backend
-from keras.layers import Input
+from keras.layers import Activation, Input
 from keras.layers.core import Dense, Lambda, Reshape
 from keras.layers.convolutional import Convolution1D
 from keras.layers.merge import concatenate, dot
@@ -90,7 +90,7 @@ with_gamma = Convolution1D(1, 1, padding = "same", input_shape = (J + 1, 1), act
 with_gamma = Reshape((J + 1, ))(with_gamma)
 
 # Finally, we use the softmax function to calculate the P(D+|Q).
-prob = Lambda(lambda x: backend.softmax(x), output_shape = (J + 1, ))(with_gamma) # See equation (5).
+prob = Activation("softmax")(with_gamma) # See equation (5).
 
 # We now have everything we need to define our model.
 model = Model(inputs = [query, pos_doc] + neg_docs, outputs = prob)
