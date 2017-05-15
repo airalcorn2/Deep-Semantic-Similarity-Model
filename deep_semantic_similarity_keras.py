@@ -91,7 +91,7 @@ weight = np.array([1]).reshape(1, 1, 1)
 with_gamma = Convolution1D(1, 1, padding = "same", input_shape = (J + 1, 1), activation = "linear", use_bias = False, weights = [weight])(concat_Rs) # See equation (5).
 with_gamma = Reshape((J + 1, ))(with_gamma)
 
-# Finally, we use the softmax function to calculate the P(D+|Q).
+# Finally, we use the softmax function to calculate P(D+|Q).
 prob = Activation("softmax")(with_gamma) # See equation (5).
 
 # We now have everything we need to define our model.
